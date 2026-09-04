@@ -11,22 +11,7 @@ The analysis uses data from the **COVID RADAR App Dataset**. This dataset is not
 
 The dataset is available through DANS Data Station Life Sciences:
 
-<https://doi.org/10.17026/dans-zcd-m9dh>
-
-### Dataset reference
-
-```bibtex
-@misc{covidradardataset,
-  author       = {van Dijk, W. J.},
-  title        = {{COVID RADAR} App Dataset},
-  year         = {2022},
-  month        = {Oct},
-  publisher    = {DANS Data Station Life Sciences},
-  journal      = {DANS Data Station Life Sciences},
-  doi          = {10.17026/dans-zcd-m9dh},
-  note         = {Accessed: January 15, 2025}
-}
-```
+van Dijk, W. J. (2022, October). *COVID RADAR App Dataset*. DANS Data Station Life Sciences. https://doi.org/10.17026/dans-zcd-m9dh
 
 ## Reproducing the analysis
 
