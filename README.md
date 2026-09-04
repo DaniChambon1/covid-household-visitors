@@ -1,2 +1,49 @@
-# covid-household-visitors
-Repository accompanying the paper: "Quantifying the Contribution of Household Visitors to the Spread of COVID-19" by Dani Chambon and Martijn H. H. Schoot Uiterkamp
+# Quantifying the Contribution of Household Visitors to the Spread of COVID-19
+
+This repository contains the code for the paper:
+
+> **Quantifying the Contribution of Household Visitors to the Spread of COVID-19**  
+> Dani Chambon and Martijn H. H. Schoot Uiterkamp
+
+## Data
+
+The analysis uses data from the **COVID RADAR App Dataset**. This dataset is not included in this repository and must be downloaded separately by the user.
+
+The dataset is available through DANS Data Station Life Sciences:
+
+<https://doi.org/10.17026/dans-zcd-m9dh>
+
+### Dataset reference
+
+```bibtex
+@misc{covidradardataset,
+  author       = {van Dijk, W. J.},
+  title        = {{COVID RADAR} App Dataset},
+  year         = {2022},
+  month        = {Oct},
+  publisher    = {DANS Data Station Life Sciences},
+  journal      = {DANS Data Station Life Sciences},
+  doi          = {10.17026/dans-zcd-m9dh},
+  note         = {Accessed: January 15, 2025}
+}
+```
+
+## Reproducing the analysis
+
+1. Clone this repository.
+2. Download the COVID RADAR App Dataset from DANS.
+3. Place the downloaded data in the appropriate data directory. All scripts in this repository expect the COVID Radar dataset to be found at: "data/COVID_radar_data/CRdataShared.csv"
+4. Install the required dependencies.
+5. Run the notebooks in the intended order.
+
+## Repository contents
+
+The repository contains the source code used to process the data, perform the statistical analyses, and generate all results presented in the paper.
+
+## Citation
+
+If you use this repository or the accompanying analyses, please cite the paper and the COVID RADAR App Dataset.
+
+## Contact
+
+For questions about the analysis or repository, please contact the authors.
