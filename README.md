@@ -1,6 +1,6 @@
 # Quantifying the Contribution of Household Visitors to the Spread of COVID-19
 
-This repository contains the code for the paper:
+This repository contains the code for the manuscript:
 
 > **Quantifying the Contribution of Household Visitors to the Spread of COVID-19**  
 > Dani Chambon and Martijn H. H. Schoot Uiterkamp
@@ -27,7 +27,7 @@ The repository contains the source code used to process the data, perform the st
 
 ## Citation
 
-If you use this repository or the accompanying analyses, please cite the paper and the COVID RADAR App Dataset.
+If you use this repository or the accompanying analyses, please cite the paper, if possible, as well as the COVID RADAR App Dataset.
 
 ## Contact
 
