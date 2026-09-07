@@ -1,8 +1,8 @@
-# Quantifying the Contribution of Household Visitors to the Spread of COVID-19
+# Quantifying the Time-Varying Contribution of Household Visitors to the Spread of COVID-19
 
 This repository contains the code for the manuscript:
 
-> **Quantifying the Contribution of Household Visitors to the Spread of COVID-19**  
+> **Quantifying the Time-Varying Contribution of Household Visitors to the Spread of COVID-19**  
 > Dani Chambon and Martijn H. H. Schoot Uiterkamp
 
 ## Data
