@@ -1,4 +1,4 @@
-# Quantifying the Time-Varying Contribution of Household Visitors to the Spread of COVID-19
+# Quantifying the Time-Varying Contribution of Household Visitors to COVID-19 infections
 
 This repository contains the code for the manuscript:
 
