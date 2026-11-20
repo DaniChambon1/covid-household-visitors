@@ -25,6 +25,8 @@ van Dijk, W. J. (2022, October). *COVID RADAR App Dataset*. DANS Data Station Li
 
 The repository contains the source code used to process the data, perform the statistical analyses, and generate all results presented in the paper.
 
+Reusable model calculations and plotting helpers are kept in `src/model.py` and `src/plotting.py`. Run the notebooks from the repository root so these modules can be imported directly.
+
 ## Citation
 
 If you use this repository or the accompanying analyses, please cite the paper, if possible, as well as the COVID RADAR App Dataset.
