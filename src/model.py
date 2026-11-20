@@ -544,23 +544,24 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
     return df_ci_results, df_ci_results_predict
 
 def log_likelihood_simple_weighted(params, I_t_input, n_vis, n_oth, weights):
-    epsilon = params[0]  # single parameter
+    epsilon = params[0]
+    I_t_input = np.asarray(I_t_input, dtype=float)
+    n_vis = np.asarray(n_vis, dtype=float)
+    n_oth = np.asarray(n_oth, dtype=float)
+    weights = np.asarray(weights, dtype=float)
 
-    log_likelihood_value = 0
+    P_t = 1.0 - np.power(
+        1.0 - epsilon, n_vis + n_oth
+    )
+    P_t = np.clip(P_t, 1e-10, 1.0 - 1e-10)
 
-    for t in range(len(I_t_input)):
-        I_t = I_t_input[t]
-        n_vis_t = n_vis[t]
-        n_oth_t = n_oth[t]
-        w_t = weights[t]
-
-        # Combined contact effect
-        P_t = 1 - (1 - epsilon)**(n_vis_t + n_oth_t)
-        P_t = np.clip(P_t, 1e-10, 1 - 1e-10)
-
-        log_likelihood_value += w_t * (I_t * np.log(P_t) + (1 - I_t) * np.log(1 - P_t))
-
-    return -log_likelihood_value
+    return -np.sum(
+        weights
+        * (
+            I_t_input * np.log(P_t)
+            + (1.0 - I_t_input) * np.log(1.0 - P_t)
+        )
+    )
 
 def cross_validation_adaptive_window_simple(df, min_pos_tests, max_window_size_days):
     
