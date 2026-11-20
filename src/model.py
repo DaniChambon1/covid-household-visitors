@@ -5,9 +5,60 @@ from datetime import timedelta
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-from sklearn.calibration import calibration_curve
 from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import KFold
+
+
+def calibration_metrics(y_true, y_prob):
+    """Calculate weighted adaptive calibration error from quantile bins."""
+    y_true_arr = np.asarray(y_true, dtype=float)
+    y_prob_arr = np.asarray(y_prob, dtype=float)
+
+    if len(y_true_arr) == 0:
+        print("No valid samples for calibration.")
+        return np.nan, np.array([]), np.array([]), 0
+
+    bin_edges = np.unique(
+        np.quantile(y_prob_arr, np.linspace(0.0, 1.0, 11))
+    )
+
+    if len(bin_edges) <= 1:
+        fraction_of_positives = np.array([np.mean(y_true_arr)])
+        mean_predicted_value = np.array([np.mean(y_prob_arr)])
+        ace = np.abs(
+            fraction_of_positives[0] - mean_predicted_value[0]
+        )
+        return ace, fraction_of_positives, mean_predicted_value, 1
+
+    bin_indices = np.digitize(
+        y_prob_arr, bin_edges[1:-1], right=True
+    )
+    fraction_of_positives = []
+    mean_predicted_value = []
+    bin_weights = []
+
+    for bin_number in range(len(bin_edges) - 1):
+        mask = bin_indices == bin_number
+        count = np.sum(mask)
+        if count > 0:
+            fraction_of_positives.append(np.mean(y_true_arr[mask]))
+            mean_predicted_value.append(np.mean(y_prob_arr[mask]))
+            bin_weights.append(count / len(y_prob_arr))
+
+    fraction_of_positives = np.asarray(fraction_of_positives)
+    mean_predicted_value = np.asarray(mean_predicted_value)
+    bin_weights = np.asarray(bin_weights)
+    ace = np.sum(
+        bin_weights
+        * np.abs(fraction_of_positives - mean_predicted_value)
+    )
+
+    return (
+        ace,
+        fraction_of_positives,
+        mean_predicted_value,
+        len(fraction_of_positives),
+    )
 
 
 def log_likelihood(params, I_t_input, n_vis, n_oth, weights):
@@ -379,55 +430,9 @@ def cross_validation_adaptive_window_pos(df, min_pos_tests, max_window_size_days
     y_true = y_true[valid_mask]
     y_prob = y_prob[valid_mask]
 
-    if len(y_true) == 0:
-        print("No valid samples for calibration.")
-        ace = np.nan
-        fraction_of_positives = np.array([])
-        mean_predicted_value = np.array([])
-        actual_bins = 0
-    else:
-        # fraction_of_positives, mean_predicted_value = calibration_curve(
-        #     y_true, y_prob, n_bins=10, strategy="quantile"
-        # )
-        # actual_bins = len(fraction_of_positives)
-
-        # if actual_bins < 10:
-        #     print(f"Warning: Only {actual_bins} bins used instead of 10 due to limited or skewed predictions")
-
-        # bin_sizes, _ = np.histogram(y_prob, bins=actual_bins)
-        # ace = np.sum(
-        #     bin_sizes * np.abs(fraction_of_positives - mean_predicted_value)
-        # ) / np.sum(bin_sizes)
-        y_true_arr = np.asarray(y_true, dtype=float)
-        y_prob_arr = np.asarray(y_prob, dtype=float)
-
-        bin_edges = np.unique(np.quantile(y_prob_arr, np.linspace(0.0, 1.0, 11)))
-        if len(bin_edges) <= 1:
-            fraction_of_positives = np.array([np.mean(y_true_arr)])
-            mean_predicted_value = np.array([np.mean(y_prob_arr)])
-            actual_bins = 1
-            ace = np.abs(fraction_of_positives[0] - mean_predicted_value[0])
-        else:
-            bin_indices = np.digitize(y_prob_arr, bin_edges[1:-1], right=True)
-            fraction_of_positives = []
-            mean_predicted_value = []
-            bin_weights = []
-
-            for b in range(len(bin_edges) - 1):
-                mask = bin_indices == b
-                count = np.sum(mask)
-                if count > 0:
-                    fraction_of_positives.append(np.mean(y_true_arr[mask]))
-                    mean_predicted_value.append(np.mean(y_prob_arr[mask]))
-                    bin_weights.append(count / len(y_prob_arr))
-
-            fraction_of_positives = np.array(fraction_of_positives)
-            mean_predicted_value = np.array(mean_predicted_value)
-            bin_weights = np.array(bin_weights)
-            actual_bins = len(fraction_of_positives)
-            ace = np.sum(
-                bin_weights * np.abs(fraction_of_positives - mean_predicted_value)
-            )
+    ace, fraction_of_positives, mean_predicted_value, actual_bins = (
+        calibration_metrics(y_true, y_prob)
+    )
 
 
     brier_score = brier_score_loss(y_true, y_prob)
@@ -711,25 +716,9 @@ def cross_validation_adaptive_window_simple(df, min_pos_tests, max_window_size_d
     y_true = y_true[valid_mask]
     y_prob = y_prob[valid_mask]
 
-    if len(y_true) == 0:
-        print("No valid samples for calibration.")
-        ace = np.nan
-        fraction_of_positives = np.array([])
-        mean_predicted_value = np.array([])
-        actual_bins = 0
-    else:
-        fraction_of_positives, mean_predicted_value = calibration_curve(
-            y_true, y_prob, n_bins=10, strategy="quantile"
-        )
-        actual_bins = len(fraction_of_positives)
-
-        if actual_bins < 10:
-            print(f"Warning: Only {actual_bins} bins used instead of 10 due to limited or skewed predictions")
-
-        bin_sizes, _ = np.histogram(y_prob, bins=actual_bins)
-        ace = np.sum(
-            bin_sizes * np.abs(fraction_of_positives - mean_predicted_value)
-        ) / np.sum(bin_sizes)
+    ace, fraction_of_positives, mean_predicted_value, actual_bins = (
+        calibration_metrics(y_true, y_prob)
+    )
 
     brier_score = brier_score_loss(y_true, y_prob)
 
