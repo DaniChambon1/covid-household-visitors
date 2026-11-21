@@ -7,6 +7,7 @@ import pandas as pd
 from scipy.optimize import minimize
 from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import KFold
+from tqdm import tqdm
 
 
 def calibration_metrics(y_true, y_prob):
@@ -466,6 +467,20 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
     np.random.seed(1809)
     
     base_results = risk_mle_adaptive_triangle_only_pos(df_behavior, min_pos_tests, max_window_size)
+    base_predictions = predict_postest(base_results, df_behavior)
+
+    base_daily = base_predictions.groupby("T0_date")[[
+        "predicted_infections",
+        "vis_ratio_split",
+        "oth_ratio_split",
+        "positivetest",
+    ]].sum()
+    window_size = 21
+    base_predicted_ma = base_daily["predicted_infections"].rolling(window=window_size, center=True).mean()
+    base_vis_ma = base_daily["vis_ratio_split"].rolling(window=window_size, center=True).mean()
+    base_oth_ma = base_daily["oth_ratio_split"].rolling(window=window_size, center=True).mean()
+    base_actual_ma = base_daily["positivetest"].rolling(window=window_size, center=True).mean()
+
     ci_results = []
     ci_results_pred = []
     
@@ -487,7 +502,6 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
         daily_oth_infections = df_pred_HELP.groupby("T0_date")["oth_ratio_split"].sum()
         daily_actual_infections = df_pred_HELP.groupby("T0_date")["positivetest"].sum()
         
-        window_size = 21
         predicted_ma = daily_predicted_infections.rolling(window=window_size, center=True).mean()
         vis_ma = daily_vis_infections.rolling(window=window_size, center=True).mean()
         oth_ma = daily_oth_infections.rolling(window=window_size, center=True).mean()
@@ -535,8 +549,11 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
                     'vis_upper': df_samples_vis_infections.quantile(upper, axis = 1),
                     'oth_lower': df_samples_oth_infections.quantile(lower, axis = 1),
                     'oth_upper': df_samples_oth_infections.quantile(upper, axis = 1),  
-                    'actual': daily_actual_infections,
-                    'actual_ma': actual_ma,
+                    'predicted_ma': base_predicted_ma,
+                    'vis_ma': base_vis_ma,
+                    'oth_ma': base_oth_ma,
+                    'actual': base_daily["positivetest"],
+                    'actual_ma': base_actual_ma,
                    }
     df_ci_results_predict = pd.DataFrame(pred_columns).sort_values("T0_date").reset_index(drop = False)
                     

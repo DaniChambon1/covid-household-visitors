@@ -213,38 +213,37 @@ def smoothed_predictions_plot(df, window_size):
     plt.show()
 
 def smoothed_predictions_plot_CI(df, df_ci, df_ci_predict, window_size, save_path=None):
-    
-    #Only if df_ci_predict contains date!
+    # Only if df_ci_predict contains dates
     df["T0_date"] = pd.to_datetime(df["T0_date"])
     df_ci_predict['T0_date'] = pd.to_datetime(df_ci_predict['T0_date'])
-    
-    # Only use rows where full window was used
-    df_plot = df_ci_predict
-    
+
     # Step 1: Aggregate daily counts
-    daily = df.groupby("T0_date")[["predicted_infections", "positivetest","vis_only","oth_only"]].sum()
+    daily = df.groupby("T0_date")[[
+        "predicted_infections",
+        "positivetest",
+        "vis_ratio_split",
+        "oth_ratio_split",
+    ]].sum()
 
     # Step 3: Apply moving average (centered)
     smoothed = daily.rolling(window=window_size, center=True).mean()
-    smoothed_CI = (df_plot.set_index('T0_date')).rolling(window=window_size,center=True).mean()
-    
+
     # Step 4: Drop NaNs caused by the smoothing window
     smoothed = smoothed.dropna()
-    print(smoothed)
-    print(df_plot)
-    smoothed_CI = smoothed_CI.dropna()
-    df_plot = df_plot.dropna()
 
-    df_plot['T0_date'] = smoothed.index
+    # Match bootstrap intervals to the exact dates used by the point estimates.
+    df_plot = df_ci_predict.set_index("T0_date").reindex(smoothed.index)
+    df_plot = df_plot.dropna(subset=["vis_lower", "vis_upper", "oth_lower", "oth_upper"])
+
     # Step 5: Plot
     plt.figure(figsize=(12, 6))
-    plt.plot(smoothed.index, smoothed["vis_only"],
+    plt.plot(smoothed.index, smoothed["vis_ratio_split"],
              label=f"Predicted positive tests caused by visitors", color='tab:blue')
-    plt.fill_between(df_plot['T0_date'],df_plot["vis_lower"], df_plot["vis_upper"],
+    plt.fill_between(df_plot.index, df_plot["vis_lower"], df_plot["vis_upper"],
                  color="tab:blue", alpha=0.2, label=r"_95% CI for positive tests caused by visitors")
-    plt.plot(smoothed.index, smoothed["oth_only"],
+    plt.plot(smoothed.index, smoothed["oth_ratio_split"],
              label=f"Predicted positive tests caused by others", color='tab:orange')
-    plt.fill_between(df_plot['T0_date'],df_plot["oth_lower"], df_plot["oth_upper"],
+    plt.fill_between(df_plot.index, df_plot["oth_lower"], df_plot["oth_upper"],
                  color="tab:orange", alpha=0.2, label=r"_95% CI for positive tests caused by others")
     #plt.plot(df_plot['shifted_T0_date'],df_plot['actual_ma'])
     
@@ -254,7 +253,7 @@ def smoothed_predictions_plot_CI(df, df_ci, df_ci_predict, window_size, save_pat
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     
-    plt.title("21-day moving average of predicted positive tests per day by cause", size=16)
+    plt.title(f"{window_size}-day moving average of predicted positive tests per day by cause", size=16)
     plt.xlim(smoothed["predicted_infections"].index.min(), smoothed["predicted_infections"].index.max())
     plt.ylim(0, 1.5)
     plt.xlabel("Date", size=12)
