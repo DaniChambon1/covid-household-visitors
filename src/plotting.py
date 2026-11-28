@@ -42,19 +42,21 @@ def plot_cause_split(df_pred, window_size=35, save_path=None):
     """
     Plot the predicted positive tests per day, split by cause (visitors vs others), along with the actual positive tests (moving average).
     """
-    df_pred.loc[:, "T0_date"] = pd.to_datetime(df_pred["T0_date"])
+    df_pred = df_pred.copy()
+    df_pred["T0_date"] = pd.to_datetime(df_pred["T0_date"]).dt.normalize()
 
-    # Compute the total predicted and actual infections per day
-    daily_predicted_infections = df_pred.groupby("T0_date")["predicted_infections"].sum()
-    daily_vis_infections = df_pred.groupby("T0_date")["vis_ratio_split"].sum()
-    daily_oth_infections = df_pred.groupby("T0_date")["oth_ratio_split"].sum()
-    daily_actual_infections = df_pred.groupby("T0_date")["positivetest"].sum()
+    # Fill missing dates so each rolling window covers consecutive calendar days.
+    daily = df_pred.groupby("T0_date")[
+        ["predicted_infections", "vis_ratio_split", "oth_ratio_split", "positivetest"]
+    ].sum()
+    calendar = pd.date_range(daily.index.min(), daily.index.max(), freq="D")
+    daily = daily.reindex(calendar, fill_value=0)
 
     # Apply a moving average (centered) to the data
-    predicted_ma = daily_predicted_infections.rolling(window=window_size, center=True).mean()
-    vis_ma = daily_vis_infections.rolling(window=window_size, center=True).mean()
-    oth_ma = daily_oth_infections.rolling(window=window_size, center=True).mean()
-    actual_ma = daily_actual_infections.rolling(window=window_size, center=True).mean()
+    predicted_ma = daily["predicted_infections"].rolling(window=window_size, center=True).mean()
+    vis_ma = daily["vis_ratio_split"].rolling(window=window_size, center=True).mean()
+    oth_ma = daily["oth_ratio_split"].rolling(window=window_size, center=True).mean()
+    actual_ma = daily["positivetest"].rolling(window=window_size, center=True).mean()
 
     # Remove NaN values from the moving averages
     vis_ma_clean = vis_ma.dropna()
