@@ -107,7 +107,7 @@ def plot_cause_split(df_pred, window_size=35, save_path=None, show_title=True):
     )
    
     plt.xlim(actual_ma_clean.index.min(), actual_ma_clean.index.max())
-    plt.ylim(0, 1.5)
+    plt.ylim(0, 1.6)
 
     if show_title:
         plt.title(f"""{window_size}-day moving average of predicted positive tests per day by cause""", fontsize=16)
@@ -229,7 +229,7 @@ def smoothed_predictions_plot(df, window_size, show_title=True):
     if show_title:
         plt.title("21-Day Moving Average of Actual vs Predicted Positive Tests Per Day", size=16)
     plt.xlim(smoothed["predicted_infections"].index.min(), smoothed["predicted_infections"].index.max())
-    plt.ylim(0, 1.5)
+    plt.ylim(0, 1.6)
     plt.xlabel("Date", size=12)
     plt.ylabel("Number of Positive Tests", size=12)
     plt.xticks(rotation=45, ha='right')
@@ -270,7 +270,7 @@ def smoothed_predictions_plot_CI(df_ci_predict, window_size, save_path=None, sho
     if show_title:
         plt.title(f"{window_size}-day moving average of predicted positive tests per day by cause", size=16)
     plt.xlim(df_plot.index.min(), df_plot.index.max())
-    plt.ylim(0, 1.5)
+    plt.ylim(0, 1.6)
     plt.xlabel("Date", size=12)
     plt.ylabel("Number of positive tests", size=12)
     plt.xticks(rotation=45, ha='right')
