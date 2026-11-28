@@ -238,61 +238,38 @@ def smoothed_predictions_plot(df, window_size, show_title=True):
     plt.tight_layout()
     plt.show()
 
-def smoothed_predictions_plot_CI(df, df_ci, df_ci_predict, window_size, save_path=None, show_title=True):
-    # Only if df_ci_predict contains dates
-    daily = (
-        df.assign(T0_date=pd.to_datetime(df["T0_date"]).dt.normalize())
-        .set_index("T0_date")[
-            [
-                "predicted_infections",
-                "positivetest",
-                "vis_ratio_split",
-                "oth_ratio_split",
-            ]
-        ]
-        .resample("D")
-        .sum()
-    )
-
-    # Step 3: Apply moving average (centered)
-    smoothed = daily.rolling(
-        window=window_size, center=True, min_periods=window_size
-    ).mean()
-
-    # Step 4: Drop NaNs caused by the smoothing window
-    smoothed = smoothed.dropna()
-
-    # Match bootstrap intervals to the exact dates used by the point estimates.
+def smoothed_predictions_plot_CI(df_ci_predict, window_size, save_path=None, show_title=True):
+    # Plot the base estimates bundled with the bootstrap intervals.
     df_plot = df_ci_predict.copy()
     df_plot["T0_date"] = pd.to_datetime(df_plot["T0_date"]).dt.normalize()
-    df_plot = df_plot.set_index("T0_date").reindex(smoothed.index)
+    df_plot = df_plot.set_index("T0_date").sort_index()
     has_complete_ci = df_plot[
         ["vis_lower", "vis_upper", "oth_lower", "oth_upper"]
     ].notna().all(axis=1)
-    smoothed = smoothed.loc[has_complete_ci]
     df_plot = df_plot.loc[has_complete_ci]
 
-    # Step 5: Plot
     plt.figure(figsize=(12, 6))
-    plt.plot(smoothed.index, smoothed["vis_ratio_split"],
+    plt.plot(df_plot.index, df_plot["vis_ma"],
              label=f"Predicted positive tests caused by visitors", color='tab:blue')
     plt.fill_between(df_plot.index, df_plot["vis_lower"], df_plot["vis_upper"],
                  color="tab:blue", alpha=0.2, label=r"_95% CI for positive tests caused by visitors")
-    plt.plot(smoothed.index, smoothed["oth_ratio_split"],
+    plt.plot(df_plot.index, df_plot["oth_ma"],
              label=f"Predicted positive tests caused by others", color='tab:orange')
     plt.fill_between(df_plot.index, df_plot["oth_lower"], df_plot["oth_upper"],
                  color="tab:orange", alpha=0.2, label=r"_95% CI for positive tests caused by others")
-    #plt.plot(df_plot['shifted_T0_date'],df_plot['actual_ma'])
-    
-    #Quick fix for paper: calculate correlation coefficient:
-    print('Correlation is', smoothed['positivetest'].corr(smoothed["predicted_infections"]))
+
+    correlation_data = df_plot[["actual_ma", "predicted_ma"]].dropna()
+    print(
+        'Correlation is',
+        correlation_data["actual_ma"].corr(correlation_data["predicted_ma"]),
+    )
     
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     
     if show_title:
         plt.title(f"{window_size}-day moving average of predicted positive tests per day by cause", size=16)
-    plt.xlim(smoothed["predicted_infections"].index.min(), smoothed["predicted_infections"].index.max())
+    plt.xlim(df_plot.index.min(), df_plot.index.max())
     plt.ylim(0, 1.5)
     plt.xlabel("Date", size=12)
     plt.ylabel("Number of positive tests", size=12)
