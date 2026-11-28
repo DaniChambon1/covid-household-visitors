@@ -462,6 +462,9 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
     3. Repeat "n_bootstrap" times:
     4.      Sample for each test in the window a number of visitors and other contacts based on Poisson distributions using the actual value as the parameter of said Poisson distribution
     5. Calculate and save the 95% CI for this date
+
+    Daily totals use a continuous calendar: zero-test days count as zero, while
+    dates without a valid model fit are excluded from model-based rolling windows.
     
     """
     np.random.seed(1809)
@@ -469,17 +472,59 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
     base_results = risk_mle_adaptive_triangle_only_pos(df_behavior, min_pos_tests, max_window_size)
     base_predictions = predict_postest(base_results, df_behavior)
 
-    base_daily = base_predictions.groupby("T0_date")[[
+    behavior_dates = pd.to_datetime(df_behavior["T0_date"]).dt.normalize()
+    calendar = pd.date_range(
+        behavior_dates.min(), behavior_dates.max(), freq="D", name="T0_date"
+    )
+    prediction_columns = [
         "predicted_infections",
         "vis_ratio_split",
         "oth_ratio_split",
-        "positivetest",
-    ]].sum()
+    ]
+
+    def daily_predictions(predictions, risk_results):
+        daily = (
+            predictions.assign(
+                T0_date=pd.to_datetime(predictions["T0_date"]).dt.normalize()
+            )
+            .set_index("T0_date")[prediction_columns + ["positivetest"]]
+            .resample("D")
+            .sum()
+            .reindex(calendar, fill_value=0)
+        )
+        valid_dates = pd.to_datetime(
+            risk_results.loc[risk_results["full_window_used"], "T0_date"]
+        ).dt.normalize()
+        valid_day = pd.Series(calendar.isin(valid_dates), index=calendar)
+        # A missing test day is zero; an invalid model-fit day is unavailable.
+        daily.loc[~valid_day, prediction_columns] = np.nan
+        return daily
+
+    base_daily = daily_predictions(base_predictions, base_results)
+    actual_daily = (
+        df_behavior.assign(
+            T0_date=pd.to_datetime(df_behavior["T0_date"]).dt.normalize()
+        )
+        .set_index("T0_date")[["positivetest"]]
+        .resample("D")
+        .sum()
+        .reindex(calendar, fill_value=0)
+    )
+    base_daily["positivetest"] = actual_daily["positivetest"]
+
     window_size = 21
-    base_predicted_ma = base_daily["predicted_infections"].rolling(window=window_size, center=True).mean()
-    base_vis_ma = base_daily["vis_ratio_split"].rolling(window=window_size, center=True).mean()
-    base_oth_ma = base_daily["oth_ratio_split"].rolling(window=window_size, center=True).mean()
-    base_actual_ma = base_daily["positivetest"].rolling(window=window_size, center=True).mean()
+    base_predicted_ma = base_daily["predicted_infections"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    base_vis_ma = base_daily["vis_ratio_split"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    base_oth_ma = base_daily["oth_ratio_split"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    base_actual_ma = base_daily["positivetest"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
 
     ci_results = []
     ci_results_pred = []
@@ -496,25 +541,21 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
         df_samples_epsilon[str(sample_nr)] = df_risk_HELP['estimated_epsilon']
         df_samples_gamma[str(sample_nr)] = df_risk_HELP['estimated_gamma']
         df_pred_HELP = predict_postest(df_risk_HELP, df_behavior)
-        
-        daily_predicted_infections = df_pred_HELP.groupby("T0_date")["predicted_infections"].sum()
-        daily_vis_infections = df_pred_HELP.groupby("T0_date")["vis_ratio_split"].sum()
-        daily_oth_infections = df_pred_HELP.groupby("T0_date")["oth_ratio_split"].sum()
-        daily_actual_infections = df_pred_HELP.groupby("T0_date")["positivetest"].sum()
-        
-        predicted_ma = daily_predicted_infections.rolling(window=window_size, center=True).mean()
-        vis_ma = daily_vis_infections.rolling(window=window_size, center=True).mean()
-        oth_ma = daily_oth_infections.rolling(window=window_size, center=True).mean()
-        actual_ma = daily_actual_infections.rolling(window=window_size, center=True).mean()
+        daily = daily_predictions(df_pred_HELP, df_risk_HELP)
 
-        predicted_ma = predicted_ma.dropna()
-        vis_ma = vis_ma.dropna()
-        oth_ma = oth_ma.dropna()
-        actual_ma = actual_ma.dropna()
-        
-        df_samples_daily_predicted[str(sample_nr)] = predicted_ma#daily_predicted_infections
-        df_samples_vis_infections[str(sample_nr)] = vis_ma#daily_vis_infections
-        df_samples_oth_infections[str(sample_nr)] = oth_ma#daily_oth_infections
+        predicted_ma = daily["predicted_infections"].rolling(
+            window=window_size, center=True, min_periods=window_size
+        ).mean()
+        vis_ma = daily["vis_ratio_split"].rolling(
+            window=window_size, center=True, min_periods=window_size
+        ).mean()
+        oth_ma = daily["oth_ratio_split"].rolling(
+            window=window_size, center=True, min_periods=window_size
+        ).mean()
+
+        df_samples_daily_predicted[str(sample_nr)] = predicted_ma
+        df_samples_vis_infections[str(sample_nr)] = vis_ma
+        df_samples_oth_infections[str(sample_nr)] = oth_ma
         
         
 
@@ -555,7 +596,13 @@ def bootstrap_confidence_intervals_pred(df_behavior, min_pos_tests, max_window_s
                     'actual': base_daily["positivetest"],
                     'actual_ma': base_actual_ma,
                    }
-    df_ci_results_predict = pd.DataFrame(pred_columns).sort_values("T0_date").reset_index(drop = False)
+    df_ci_results_predict = (
+        pd.DataFrame(pred_columns)
+        .rename_axis("T0_date")
+        .reset_index()
+        .sort_values("T0_date")
+        .reset_index(drop=True)
+    )
                     
         #return pd.DataFrame(ci_results).sort_values("T0_date").reset_index(drop=True)
     return df_ci_results, df_ci_results_predict

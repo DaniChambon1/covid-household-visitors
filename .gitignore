@@ -7,3 +7,7 @@ __pycache__/
 
 # Local VS Code workspace settings
 .vscode/
+
+# Testing files
+crossval_data/crossval_summary_adaptive_pos_2_x_63_50neg.csv
+99_testing.ipynb

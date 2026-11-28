@@ -6,7 +6,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import ListedColormap
 
 
-def risk_plot(df_risk):
+def risk_plot(df_risk, show_title=True):
     """
     Plot the estimated per contact risk over time.
     """
@@ -30,7 +30,8 @@ def risk_plot(df_risk):
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     
     plt.xticks(rotation=45, ha='right')
-    plt.title('Estimated Epsilon and Gamma over Time', size=16)
+    if show_title:
+        plt.title('Estimated Epsilon and Gamma over Time', size=16)
     plt.xlabel('Date', size=12)
     plt.ylabel('Estimated Values', size=12)
     plt.legend(loc="upper left", fontsize=11)
@@ -38,25 +39,34 @@ def risk_plot(df_risk):
 
     plt.show()
 
-def plot_cause_split(df_pred, window_size=35, save_path=None):
+def plot_cause_split(df_pred, window_size=35, save_path=None, show_title=True):
     """
     Plot the predicted positive tests per day, split by cause (visitors vs others), along with the actual positive tests (moving average).
     """
-    df_pred = df_pred.copy()
-    df_pred["T0_date"] = pd.to_datetime(df_pred["T0_date"]).dt.normalize()
-
-    # Fill missing dates so each rolling window covers consecutive calendar days.
-    daily = df_pred.groupby("T0_date")[
-        ["predicted_infections", "vis_ratio_split", "oth_ratio_split", "positivetest"]
-    ].sum()
-    calendar = pd.date_range(daily.index.min(), daily.index.max(), freq="D")
-    daily = daily.reindex(calendar, fill_value=0)
+    daily = (
+        df_pred.assign(
+            T0_date=pd.to_datetime(df_pred["T0_date"]).dt.normalize()
+        )
+        .set_index("T0_date")[
+            ["predicted_infections", "vis_ratio_split", "oth_ratio_split", "positivetest"]
+        ]
+        .resample("D")
+        .sum()
+    )
 
     # Apply a moving average (centered) to the data
-    predicted_ma = daily["predicted_infections"].rolling(window=window_size, center=True).mean()
-    vis_ma = daily["vis_ratio_split"].rolling(window=window_size, center=True).mean()
-    oth_ma = daily["oth_ratio_split"].rolling(window=window_size, center=True).mean()
-    actual_ma = daily["positivetest"].rolling(window=window_size, center=True).mean()
+    predicted_ma = daily["predicted_infections"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    vis_ma = daily["vis_ratio_split"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    oth_ma = daily["oth_ratio_split"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    actual_ma = daily["positivetest"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
 
     # Remove NaN values from the moving averages
     vis_ma_clean = vis_ma.dropna()
@@ -99,7 +109,8 @@ def plot_cause_split(df_pred, window_size=35, save_path=None):
     plt.xlim(actual_ma_clean.index.min(), actual_ma_clean.index.max())
     plt.ylim(0, 1.5)
 
-    plt.title(f"""{window_size}-day moving average of predicted positive tests per day by cause""", fontsize=16)
+    if show_title:
+        plt.title(f"""{window_size}-day moving average of predicted positive tests per day by cause""", fontsize=16)
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     
@@ -116,19 +127,26 @@ def plot_cause_split(df_pred, window_size=35, save_path=None):
         
     plt.show()
 
-def plot_cause_split_proportions(df_pred, window_size=35, save_path=None):
+def plot_cause_split_proportions(df_pred, window_size=35, save_path=None, show_title=True):
     """
     Plot the predicted positive tests per day, split by cause (visitors vs others), as proportions of total predicted infections.
     """
-    df_pred.loc[:, "T0_date"] = pd.to_datetime(df_pred["T0_date"])
-
-    # Compute the total predicted infections per source per day
-    daily_vis_infections = df_pred.groupby("T0_date")["vis_ratio_split"].sum()
-    daily_oth_infections = df_pred.groupby("T0_date")["oth_ratio_split"].sum()
+    daily = (
+        df_pred.assign(
+            T0_date=pd.to_datetime(df_pred["T0_date"]).dt.normalize()
+        )
+        .set_index("T0_date")[["vis_ratio_split", "oth_ratio_split"]]
+        .resample("D")
+        .sum()
+    )
 
     # Apply a moving average (centered) to the data
-    vis_ma = daily_vis_infections.rolling(window=window_size, center=True).mean()
-    oth_ma = daily_oth_infections.rolling(window=window_size, center=True).mean()
+    vis_ma = daily["vis_ratio_split"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
+    oth_ma = daily["oth_ratio_split"].rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
 
     # Compute the total infections and percentage contributions
     total_ma = vis_ma + oth_ma
@@ -164,7 +182,8 @@ def plot_cause_split_proportions(df_pred, window_size=35, save_path=None):
     plt.xlim(vis_percent_clean.index.min(), vis_percent_clean.index.max())
     plt.ylim(0, 100)
 
-    plt.title(f"""Contribution of {window_size}-day moving average of predicted positive tests per day by cause""", size=16)
+    if show_title:
+        plt.title(f"""Contribution of {window_size}-day moving average of predicted positive tests per day by cause""", size=16)
 
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.MonthLocator())
@@ -180,15 +199,19 @@ def plot_cause_split_proportions(df_pred, window_size=35, save_path=None):
         plt.savefig(save_path, dpi=200, bbox_inches='tight')
     plt.show()
 
-def smoothed_predictions_plot(df, window_size):
-    
-    df["T0_date"] = pd.to_datetime(df["T0_date"])
+def smoothed_predictions_plot(df, window_size, show_title=True):
 
-    # Step 1: Aggregate daily counts
-    daily = df.groupby("T0_date")[["predicted_infections", "positivetest"]].sum()
+    daily = (
+        df.assign(T0_date=pd.to_datetime(df["T0_date"]).dt.normalize())
+        .set_index("T0_date")[["predicted_infections", "positivetest"]]
+        .resample("D")
+        .sum()
+    )
 
     # Step 3: Apply moving average (centered)
-    smoothed = daily.rolling(window=window_size, center=True).mean()
+    smoothed = daily.rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
 
     # Step 4: Drop NaNs caused by the smoothing window
     smoothed = smoothed.dropna()
@@ -203,7 +226,8 @@ def smoothed_predictions_plot(df, window_size):
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     
-    plt.title("21-Day Moving Average of Actual vs Predicted Positive Tests Per Day", size=16)
+    if show_title:
+        plt.title("21-Day Moving Average of Actual vs Predicted Positive Tests Per Day", size=16)
     plt.xlim(smoothed["predicted_infections"].index.min(), smoothed["predicted_infections"].index.max())
     plt.ylim(0, 1.5)
     plt.xlabel("Date", size=12)
@@ -214,28 +238,39 @@ def smoothed_predictions_plot(df, window_size):
     plt.tight_layout()
     plt.show()
 
-def smoothed_predictions_plot_CI(df, df_ci, df_ci_predict, window_size, save_path=None):
+def smoothed_predictions_plot_CI(df, df_ci, df_ci_predict, window_size, save_path=None, show_title=True):
     # Only if df_ci_predict contains dates
-    df["T0_date"] = pd.to_datetime(df["T0_date"])
-    df_ci_predict['T0_date'] = pd.to_datetime(df_ci_predict['T0_date'])
-
-    # Step 1: Aggregate daily counts
-    daily = df.groupby("T0_date")[[
-        "predicted_infections",
-        "positivetest",
-        "vis_ratio_split",
-        "oth_ratio_split",
-    ]].sum()
+    daily = (
+        df.assign(T0_date=pd.to_datetime(df["T0_date"]).dt.normalize())
+        .set_index("T0_date")[
+            [
+                "predicted_infections",
+                "positivetest",
+                "vis_ratio_split",
+                "oth_ratio_split",
+            ]
+        ]
+        .resample("D")
+        .sum()
+    )
 
     # Step 3: Apply moving average (centered)
-    smoothed = daily.rolling(window=window_size, center=True).mean()
+    smoothed = daily.rolling(
+        window=window_size, center=True, min_periods=window_size
+    ).mean()
 
     # Step 4: Drop NaNs caused by the smoothing window
     smoothed = smoothed.dropna()
 
     # Match bootstrap intervals to the exact dates used by the point estimates.
-    df_plot = df_ci_predict.set_index("T0_date").reindex(smoothed.index)
-    df_plot = df_plot.dropna(subset=["vis_lower", "vis_upper", "oth_lower", "oth_upper"])
+    df_plot = df_ci_predict.copy()
+    df_plot["T0_date"] = pd.to_datetime(df_plot["T0_date"]).dt.normalize()
+    df_plot = df_plot.set_index("T0_date").reindex(smoothed.index)
+    has_complete_ci = df_plot[
+        ["vis_lower", "vis_upper", "oth_lower", "oth_upper"]
+    ].notna().all(axis=1)
+    smoothed = smoothed.loc[has_complete_ci]
+    df_plot = df_plot.loc[has_complete_ci]
 
     # Step 5: Plot
     plt.figure(figsize=(12, 6))
@@ -255,7 +290,8 @@ def smoothed_predictions_plot_CI(df, df_ci, df_ci_predict, window_size, save_pat
     ax = plt.gca()
     ax.xaxis.set_major_locator(mdates.MonthLocator())
     
-    plt.title(f"{window_size}-day moving average of predicted positive tests per day by cause", size=16)
+    if show_title:
+        plt.title(f"{window_size}-day moving average of predicted positive tests per day by cause", size=16)
     plt.xlim(smoothed["predicted_infections"].index.min(), smoothed["predicted_infections"].index.max())
     plt.ylim(0, 1.5)
     plt.xlabel("Date", size=12)
